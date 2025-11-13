@@ -1,9 +1,9 @@
 # %%
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
+import csv
 
-one_book_url = "https://books.toscrape.com/catalogue/my-paris-kitchen-recipes-and-stories_910/index.html"
+BOOK_URL = "https://books.toscrape.com/catalogue/my-paris-kitchen-recipes-and-stories_910/index.html"
 
 words_to_numbers = {
     "Zero": 0,
@@ -14,9 +14,12 @@ words_to_numbers = {
     "Five": 5,
     }
 
-def scrap_book(url):
+def get_book_infos(url):
     book = requests.get(url)
     soup = BeautifulSoup(book.content, 'html.parser')
+    return soup
+
+def transform_book_info(soup):
     title = soup.find('h1').get_text()
     book_infos = soup.find_all('td')
     book_description = soup.find('meta', attrs={'name':'description'})['content'].strip()
@@ -25,7 +28,6 @@ def scrap_book(url):
     book_rating_int = words_to_numbers.get(book_rating_str)
     book_imgurl = soup.find('img')['src']
     book_quantity = ''.join(c for c in book_infos[2] if c.isdigit())
-
     book_to_load = {
         'product_page_url': book_imgurl,
         'universal_product_code (upc)': book_infos[0],
@@ -38,13 +40,19 @@ def scrap_book(url):
         'review_rating': book_rating_int,
         'image_url': book_imgurl
     }
+    return book_to_load
 
-    # print(book_to_load)
+def load_book(book_to_load, filename):
+    with open(filename, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=book_to_load.keys())
+        writer.writeheader()
+        writer.writerow(book_to_load)
 
-    df = pd.DataFrame([book_to_load])
-    df.to_csv("one_book_scraped.csv", index=False)
+def scrap_book(url):
+    soup = get_book_infos(url)
+    book_to_load = transform_book_info(soup)
+    load_book(book_to_load, filename='one_book.csv')
 
-
-scrap_book(one_book_url)
+scrap_book(BOOK_URL)
 
 # %%
