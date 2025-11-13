@@ -29,7 +29,7 @@ def transform_book_info(soup):
     book_imgurl = soup.find('img')['src']
     book_quantity = ''.join(c for c in book_infos[2] if c.isdigit())
     book_to_load = {
-        'product_page_url': book_imgurl,
+        'product_page_url': BOOK_URL,
         'universal_product_code (upc)': book_infos[0],
         'title': title,
         'price_including_tax': book_infos[3],
