@@ -62,18 +62,22 @@ def get_book_infos(url):
 def transform_book_info(url, soup):
     title = soup.find('h1').get_text()
     book_infos = soup.find_all('td')
+    book_upc = soup.find_all('td')[0].get_text()
+    book_price_incl = soup.find_all('td')[3].get_text()
+    book_price_excl = soup.find_all('td')[2].get_text()
     book_description = soup.find('meta', attrs={'name':'description'})['content'].strip()
     book_category = soup.find_all('li')[2].get_text().strip()
     book_rating_str = soup.find('p', class_='star-rating')['class'][1]
     book_rating_int = words_to_numbers.get(book_rating_str)
     book_imgurl = soup.find('img')['src']
-    book_quantity = ''.join(c for c in book_infos[2] if c.isdigit())
+    raw = book_infos[5].get_text()
+    book_quantity = ''.join(c for c in raw if c.isdigit())
     book_to_load = {
         'product_page_url': url,
-        'universal_product_code (upc)': book_infos[0],
+        'universal_product_code (upc)': book_upc,
         'title': title,
-        'price_including_tax': book_infos[3],
-        'price_excluding_tax': book_infos[2],
+        'price_including_tax': book_price_incl,
+        'price_excluding_tax': book_price_excl,
         'number_available': book_quantity,
         'product_description': book_description,
         'category': book_category,
@@ -82,11 +86,23 @@ def transform_book_info(url, soup):
     }
     return book_to_load
 
-def load_category(data, field_names, filename):
+def load_category(data, filename):
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=field_names.keys())
+        FIELDNAMES = [
+            "product_page_url",
+            "universal_product_code (upc)",
+            "title",
+            "price_including_tax",
+            "price_excluding_tax",
+            "number_available",
+            "product_description",
+            "category",
+            "review_rating",
+            "image_url"
+        ]
+        writer = csv.DictWriter(file, fieldnames=FIELDNAMES)
         writer.writeheader()
-        writer.writerow(data)
+        writer.writerows(data)
 
 def scrap_category(category_url):
     url_list = get_books_url(category_url)
@@ -95,7 +111,7 @@ def scrap_category(category_url):
         soup = get_book_infos(url)
         book_to_load = transform_book_info(url, soup)
         books_to_load.append(book_to_load)
-    load_category(books_to_load, book_to_load, filename='category.csv')
+    load_category(books_to_load, filename='category.csv')
 
 scrap_category(CATEGORY_URL)
 # %%
