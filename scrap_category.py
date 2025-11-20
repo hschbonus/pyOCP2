@@ -2,6 +2,7 @@
 import requests
 from bs4 import BeautifulSoup
 import csv
+import time
 
 # une seule page
 # CATEGORY_URL = "https://books.toscrape.com/catalogue/category/books/travel_2/index.html"
@@ -9,40 +10,40 @@ import csv
 # plusieurs pages
 CATEGORY_URL = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
 
-def get_books_url(url):
-    page = requests.get(url)
-    soup = BeautifulSoup(page.content, 'html.parser')
-
-    category_books_url = []
+def get_page(cat_index, soup):
+    books_url_buffer = []
     url_container = soup.find_all('h3')
-
     for h3 in url_container:
         original_book_url = h3.find('a')['href']
         add_book_url = original_book_url.replace('../../..', '')
         base_book_url = 'https://books.toscrape.com/catalogue'
         book_full_url = f'{base_book_url}{add_book_url}'
-        category_books_url.append(book_full_url)
+        books_url_buffer.append(book_full_url)
 
     is_next = soup.find(class_='next')
-    
-    while is_next != None:
+    if is_next != None:
         next_page_number = is_next.find('a')['href']
-        base_url = url.replace('index.html', '')
+        base_url = cat_index.replace('index.html', '')
         next_url = f'{base_url}{next_page_number}'
-        next_page = requests.get(next_url)
-        soup = BeautifulSoup(next_page.content, 'html.parser')
+    else: next_url = None
 
-        url_container = soup.find_all('h3')
-    
-        for h3 in url_container:
-            original_book_url = h3.find('a')['href']
-            add_book_url = original_book_url.replace('../../..', '')
-            base_book_url = 'https://books.toscrape.com/catalogue'
-            book_full_url = f'{base_book_url}{add_book_url}'
-            category_books_url.append(book_full_url)
-        
-        is_next = soup.find(class_='next')
-    
+    return books_url_buffer, next_url
+
+def get_category(cat_index):
+
+    category_books_url = []
+
+    page = requests.get(cat_index)
+    soup = BeautifulSoup(page.content, 'html.parser')
+
+    books_url_buffer, next_page_url = get_page(cat_index, soup)
+    category_books_url.extend(books_url_buffer)
+
+    while next_page_url != None:
+        next_page = requests.get(next_page_url)
+        soup = BeautifulSoup(next_page.content, 'html.parser')
+        books_url_buffer, next_page_url = get_page(cat_index, soup)
+        category_books_url.extend(books_url_buffer)
     return category_books_url
 
 words_to_numbers = {
@@ -105,7 +106,7 @@ def load_category(data, filename):
         writer.writerows(data)
 
 def scrap_category(category_url):
-    url_list = get_books_url(category_url)
+    url_list = get_category(category_url)
     books_to_load = []
     for url in url_list:
         soup = get_book_infos(url)
@@ -113,5 +114,8 @@ def scrap_category(category_url):
         books_to_load.append(book_to_load)
     load_category(books_to_load, filename='category.csv')
 
+start = time.time()
 scrap_category(CATEGORY_URL)
+end = time.time()
+print("Temps d'exécution :", end - start, "secondes")
 # %%
