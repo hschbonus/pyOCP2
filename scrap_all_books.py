@@ -2,13 +2,12 @@
 import requests
 from bs4 import BeautifulSoup
 import csv
+import re
 import time
 
-# une seule page
-# CATEGORY_URL = "https://books.toscrape.com/catalogue/category/books/travel_2/index.html"
-
-# plusieurs pages
+HOME_URL = "https://books.toscrape.com/index.html"
 CATEGORY_URL = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
+
 
 WORDS_TO_NUMBER = {
     "Zero": 0,
@@ -18,6 +17,21 @@ WORDS_TO_NUMBER = {
     "Four": 4,
     "Five": 5,
     }
+
+def all_categories(url):
+    page = requests.get(url)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    link_list = soup.find_all('a', href=re.compile("category/books/"))
+    cat_list = []    
+    cat_base_url ='https://books.toscrape.com/'
+    for link in link_list:
+        cat = {}
+        cat['name'] = link.get_text().strip()
+        cat['url'] = f'{cat_base_url}{link['href']}'
+        cat_list.append(cat)
+    return cat_list
+
+all_categories(HOME_URL)
 
 def get_page(cat_index, soup):
     books_url_buffer = []
@@ -58,6 +72,7 @@ def get_category(cat_index):
 def get_book_infos(url):
     book = requests.get(url)
     soup = BeautifulSoup(book.content, 'html.parser')
+    
     return soup
 
 def transform_book_info(url, soup):
@@ -70,7 +85,11 @@ def transform_book_info(url, soup):
     book_category = soup.find_all('li')[2].get_text().strip()
     book_rating_str = soup.find('p', class_='star-rating')['class'][1]
     book_rating_int = WORDS_TO_NUMBER.get(book_rating_str)
-    book_imgurl = soup.find('img')['src']
+    book_img_link = soup.find('img')['src']
+    book_img_base_url = 'https://books.toscrape.com/'
+    book_img_add_url = book_img_link.replace('../..', '')
+    book_img_url = f'{book_img_base_url}{book_img_add_url}'
+    print(book_img_url)
     raw = book_infos[5].get_text()
     book_quantity = ''.join(c for c in raw if c.isdigit())
     book_to_load = {
@@ -83,8 +102,13 @@ def transform_book_info(url, soup):
         'product_description': book_description,
         'category': book_category,
         'review_rating': book_rating_int,
-        'image_url': book_imgurl
+        'image_url': book_img_url
     }
+
+    img_data = requests.get(book_img_url).content
+    with open(f'images/{book_upc}.jpg', "wb") as handler:
+        handler.write(img_data)
+
     return book_to_load
 
 def load_category(data, filename):
@@ -106,18 +130,26 @@ def load_category(data, filename):
         writer.writerows(data)
         pass
 
-def scrap_category(category_url):
+def scrap_category(category_url, category_name):
     url_list = get_category(category_url)
     books_to_load = []
     for url in url_list:
         soup = get_book_infos(url)
         book_to_load = transform_book_info(url, soup)
         books_to_load.append(book_to_load)
-    load_category(books_to_load, filename='category.csv')
+    load_category(books_to_load, filename=f'csv/{category_name}.csv')
     pass
 
+def scrap_all_books(url):
+    cat_list = all_categories(url)
+    for cat in cat_list:
+        scrap_category(cat['url'], cat['name'])
+        print(f'CSV {cat['name']} créé !')
+    
+
 start = time.time()
-scrap_category(CATEGORY_URL)
+scrap_all_books(HOME_URL)
 end = time.time()
 print("Temps d'exécution :", round(end - start, 1), "secondes")
-# %%
+
+#%%

@@ -51,11 +51,13 @@ def load_book(data, filename):
         writer = csv.DictWriter(file, fieldnames=data.keys())
         writer.writeheader()
         writer.writerow(data)
+    pass
 
 def scrap_book(url):
     soup = get_book_infos(url)
     book_to_load = transform_book_info(soup)
     load_book(book_to_load, filename='one_book.csv')
+    pass
 
 scrap_book(BOOK_URL)
 
